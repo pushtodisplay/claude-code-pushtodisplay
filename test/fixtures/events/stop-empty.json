@@ -1,0 +1,13 @@
+{
+  "name": "Stop falls back when the agent produced no text",
+  "event": {
+    "session_id": "s1",
+    "cwd": "/repo",
+    "hook_event_name": "Stop",
+    "stop_hook_active": false,
+    "last_assistant_message": ""
+  },
+  "config": {},
+  "state": { "agent": "demo", "cwd": "/repo" },
+  "expected": [{ "line": "demo no summary DONE 11:04", "urgent": true }]
+}

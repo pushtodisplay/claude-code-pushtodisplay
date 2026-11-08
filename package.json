@@ -1,0 +1,52 @@
+{
+  "name": "claude-code-pushtodisplay",
+  "version": "0.1.0",
+  "description": "Mirror Claude Code agent activity onto your Push To Display board as a shared, human-readable log",
+  "type": "module",
+  "keywords": [
+    "claude-code",
+    "claude-code-plugin",
+    "pushtodisplay",
+    "push-to-display",
+    "display",
+    "signage",
+    "dashboard",
+    "status-board",
+    "hooks",
+    "real-time"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "Goban Source LLC",
+    "email": "hello@pushtodisplay.com",
+    "url": "https://pushtodisplay.com"
+  },
+  "homepage": "https://pushtodisplay.com",
+  "bugs": {
+    "url": "https://github.com/pushtodisplay/claude-code-pushtodisplay/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pushtodisplay/claude-code-pushtodisplay.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "node --test",
+    "check": "npm run typecheck && npm run lint && npm test",
+    "validate:plugin": "npx --yes @anthropic-ai/claude-code plugin validate ."
+  },
+  "dependencies": {
+    "pushtodisplay": "^0.1.15"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@types/node": "^22.15.3",
+    "eslint": "^9.25.1",
+    "globals": "^16.0.0",
+    "typescript": "~5.7.3"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "SubagentStop posts a low-noise finished step",
+  "event": {
+    "session_id": "s1",
+    "cwd": "/repo",
+    "hook_event_name": "SubagentStop",
+    "agent_id": "agent-1",
+    "agent_type": "Explore",
+    "last_assistant_message": "Found three issues."
+  },
+  "config": {},
+  "state": { "agent": "demo", "cwd": "/repo" },
+  "expected": [{ "line": "demo subagent Explore finished OK 11:04", "urgent": false }]
+}

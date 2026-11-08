@@ -1,0 +1,18 @@
+{
+  "name": "pushtodisplay",
+  "description": "Push To Display plugins for coding agents.",
+  "owner": {
+    "name": "Goban Source LLC",
+    "email": "hello@pushtodisplay.com",
+    "url": "https://pushtodisplay.com"
+  },
+  "plugins": [
+    {
+      "name": "pushtodisplay",
+      "source": "./",
+      "description": "Mirror Claude Code agent activity onto your Push To Display board as a shared, human-readable log.",
+      "category": "monitoring",
+      "tags": ["status", "display", "dashboard", "notifications", "hooks"]
+    }
+  ]
+}

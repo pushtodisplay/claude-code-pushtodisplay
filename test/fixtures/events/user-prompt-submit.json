@@ -1,0 +1,12 @@
+{
+  "name": "UserPromptSubmit posts the prompt",
+  "event": {
+    "session_id": "s1",
+    "cwd": "/repo",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "fix the flaky release test"
+  },
+  "config": {},
+  "state": { "agent": "demo", "cwd": "/repo" },
+  "expected": [{ "line": "demo fix the flaky release test RUN 11:04", "urgent": true }]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "PermissionRequest posts the blocking Bash prompt",
+  "event": {
+    "session_id": "s1",
+    "cwd": "/repo",
+    "hook_event_name": "PermissionRequest",
+    "tool_name": "Bash",
+    "tool_input": { "command": "git push --force-with-lease" }
+  },
+  "config": {},
+  "state": { "agent": "demo", "cwd": "/repo" },
+  "expected": [{ "line": "demo Allow Bash: git push --force-with-lease NEEDS 11:04", "urgent": true }]
+}
