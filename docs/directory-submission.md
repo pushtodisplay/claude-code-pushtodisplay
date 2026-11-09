@@ -261,13 +261,12 @@ Expected/observed results:
   events, no agents, MCP servers, or LSP servers.
 
 The public GitHub marketplace path was exercised with an isolated
-`CLAUDE_CONFIG_DIR` for 0.1.1: `claude plugin marketplace add
+`CLAUDE_CONFIG_DIR`: `claude plugin marketplace add
 pushtodisplay/claude-code-pushtodisplay`, `claude plugin install
-pushtodisplay@pushtodisplay`, and `claude plugin list` showed the release. For
-0.1.2 the CLI is committed at `vendor/pushtodisplay/dist/cli.js`, so a cached
-install should contain that file and no runtime `node_modules/pushtodisplay`
-dependency. A local-path marketplace install loads in place, so it does not
-exercise the copy step.
+pushtodisplay@pushtodisplay`, and `claude plugin list` showed version `0.1.2`.
+The cached plugin contained `vendor/pushtodisplay/dist/cli.js`; it had no
+runtime `node_modules/pushtodisplay` dependency (only dev tooling). A local-path
+marketplace install loads in place, so it does not exercise the copy step.
 
 ## Lockfile tradeoff
 
