@@ -257,12 +257,15 @@ Expected/observed results:
 - `claude --plugin-dir . plugin details pushtodisplay`: 4 commands and 10 hook
   events, no agents, MCP servers, or LSP servers.
 
-The repository marketplace was also exercised with an isolated `HOME`: the
-repository was added as a local marketplace, `pushtodisplay@pushtodisplay` was
-installed, and `claude plugin list` showed the plugin at version `0.1.1`.
-Automatic dependency installation from the committed lockfile was verified
-separately with `npm ci`; the local-path marketplace loads the plugin in place,
-so Claude Code does not copy it or install its dependencies there.
+The public GitHub marketplace path was exercised with an isolated
+`CLAUDE_CONFIG_DIR` (with the real `HOME` and `PATH`, so the system npm works):
+`claude plugin marketplace add pushtodisplay/claude-code-pushtodisplay`,
+`claude plugin install pushtodisplay@pushtodisplay`, and
+`claude plugin list` showed version `0.1.1`. The cached plugin contained
+`node_modules/pushtodisplay` at version `0.1.18`, so Claude Code's automatic
+dependency install works from the committed lockfile. A local-path marketplace
+install also showed `0.1.1`; local paths load in place, so that check does not
+exercise the dependency copy step.
 
 ## Lockfile tradeoff
 
