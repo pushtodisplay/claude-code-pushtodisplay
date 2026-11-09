@@ -81,3 +81,10 @@ test("cacheDir lives under ~/.cache/pushtodisplay/claude-code", () => {
     "/home/me/.cache/pushtodisplay/claude-code",
   );
 });
+
+test("cacheDir honors the internal test override", () => {
+  assert.equal(
+    cacheDir({ HOME: "/home/me", PUSHTODISPLAY_CACHE_DIR: "/tmp/ptd-cache" }),
+    "/tmp/ptd-cache",
+  );
+});

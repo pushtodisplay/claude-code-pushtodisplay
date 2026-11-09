@@ -69,9 +69,7 @@ reaches you. Subagent lines are deliberately low-noise and are skipped when
 
 ## Install
 
-### From the marketplace (recommended)
-
-The repository is its own single-plugin marketplace. In Claude Code:
+The GitHub repository is a single-plugin marketplace. In Claude Code:
 
 ```text
 /plugin marketplace add pushtodisplay/claude-code-pushtodisplay
@@ -85,19 +83,8 @@ claude plugin marketplace add pushtodisplay/claude-code-pushtodisplay
 claude plugin install pushtodisplay@pushtodisplay
 ```
 
-Restart Claude Code (or run `/reload-plugins`) after installing.
-
-### From a local checkout
-
-```bash
-git clone https://github.com/pushtodisplay/claude-code-pushtodisplay.git
-cd claude-code-pushtodisplay
-npm ci
-claude --plugin-dir .
-```
-
-`--plugin-dir` loads the plugin for that session only, which is the fastest way
-to try a change without touching your installed plugins.
+Restart Claude Code (or run `/reload-plugins`) after installing, then run the
+setup action described below.
 
 ### Requirements
 
@@ -106,41 +93,38 @@ to try a change without touching your installed plugins.
   `Stop`, `StopFailure`, `SessionEnd`, `SubagentStart`, and `SubagentStop`
   hooks).
 - **Node.js 18+** — hooks run `node ${CLAUDE_PLUGIN_ROOT}/hooks/hook.mjs`.
-- **The `pushtodisplay` CLI.** Marketplace installs install the npm dependency
-  automatically from `package-lock.json`. For a local checkout, `npm ci`
-  puts it in the plugin's `node_modules`. A `pushtodisplay` binary already on
-  `PATH` also works. If none is present, the plugin reports a clear install
-  error instead of downloading a package at runtime.
+- **A Push To Display account** — setup opens the device-code login.
+- **No separate CLI install.** The plugin includes a pinned `pushtodisplay`
+  CLI and uses it automatically.
 
 ## Quick start
 
-1. **Log in** (OAuth device-code flow; opens your browser when possible):
+1. **Install** the plugin from the marketplace as shown above.
+2. **Restart** Claude Code (or run `/reload-plugins`).
+3. **Run setup**:
 
    ```text
-   /pushtodisplay:pushtodisplay-login
+   /pushtodisplay:pushtodisplay-setup
    ```
 
-2. **Verify the wiring** — sends one test entry to the configured board and
-   panel:
+   Setup logs you in if needed, sends one test entry to the configured board and
+   panel, and only then records that this Claude Code integration is set up.
 
-   ```text
-   /pushtodisplay:pushtodisplay-test
-   ```
-
-3. **Check auth, board, panel, and label**:
-
-   ```text
-   /pushtodisplay:pushtodisplay-status
-   ```
+Installation alone sends nothing. A login from Codex, opencode, pi, or another
+integration on the same machine does not enable this plugin until this setup
+action completes.
 
 That's it. The next session shows it starting, what it is working on, failed
 steps, permission prompts, and what it said when it finished.
 
+`/pushtodisplay:pushtodisplay-status` shows auth, setup, board, panel, and label
+without changing anything.
+
 > **Command names:** Claude Code namespaces plugin commands under the plugin
-> name. The files are named `pushtodisplay-login`, `pushtodisplay-status`,
-> `pushtodisplay-test`, and `pushtodisplay-clear`, so the commands are
-> `/pushtodisplay:pushtodisplay-login`, etc. Type `/pushtodisplay` in the `/`
-> menu to see them.
+> name. The files are named `pushtodisplay-setup`, `pushtodisplay-login`,
+> `pushtodisplay-status`, `pushtodisplay-test`, and `pushtodisplay-clear`, so the
+> commands are `/pushtodisplay:pushtodisplay-setup`, etc. Type `/pushtodisplay`
+> in the `/` menu to see them.
 
 ## Configuration
 
@@ -154,7 +138,6 @@ a different panel without any per-session config files:
 | `PUSHTODISPLAY_LABEL` | *(cwd basename)* | Agent name in the first field of every line. |
 | `PUSHTODISPLAY_STEPS` | *(on)* | Set to `0` to skip per-tool and per-subagent entries (milestones only). |
 | `PUSHTODISPLAY_DISABLED` | *(off)* | Set to `1` to disable the plugin entirely. |
-| `PUSHTODISPLAY_CLI` | *(auto)* | Optional path to a `pushtodisplay` executable; overrides bundled/PATH resolution. |
 
 Set them in the environment that launches Claude Code:
 
@@ -191,16 +174,19 @@ you two distinct agents.
 
 | Command | Description |
 | --- | --- |
-| `/pushtodisplay:pushtodisplay-login` | Start OAuth login (opens browser, shows the device code). |
-| `/pushtodisplay:pushtodisplay-status` | Show auth state, CLI source, board, panel, and label. |
+| `/pushtodisplay:pushtodisplay-setup` | Log in if needed, send a test entry, and enable this Claude Code integration. |
+| `/pushtodisplay:pushtodisplay-login` | Re-authenticate after an expired or revoked login. |
+| `/pushtodisplay:pushtodisplay-status` | Show auth, setup, board, panel, and label. |
 | `/pushtodisplay:pushtodisplay-test` | Send a test entry to verify wiring. |
 | `/pushtodisplay:pushtodisplay-clear` | Write a `log cleared` entry to this panel. |
 
 The commands run a bundled script through Claude Code's dynamic context
-injection; `allowed-tools` pre-approves only that script. The login command
-starts the device-code flow in a detached worker, prints the URL and code
-immediately, opens the browser when possible, and leaves the worker polling until
-you approve. `/pushtodisplay:pushtodisplay-status` forces an auth re-probe.
+injection; `allowed-tools` pre-approves only that script. The setup command
+starts the device-code flow when needed, prints the URL and code, opens the
+browser when possible, waits for the login, sends one test entry, and only then
+writes this integration's setup marker. The login command is the shorter
+re-authentication path and leaves an existing marker untouched.
+`/pushtodisplay:pushtodisplay-status` forces an auth re-probe.
 
 ## How it works
 
@@ -217,7 +203,8 @@ Claude Code hooks ──► hook.mjs ──► state file ──► drainer ─�
 - **Per-session state.** Every hook invocation is a separate process, so the
   task, last assistant text, queue, last-send time, and dedupe key live in
   `~/.cache/pushtodisplay/claude-code/<session_id>.json`. Auth is shared in
-  `auth.json` because it is account-level, not session-level.
+  `auth.json` because it is account-level, not session-level; `setup.json` is
+  this integration's own marker.
 - **Fast hooks, ordered sends.** Ordinary hooks enqueue under a short lock and
   spawn a detached drainer, then exit. The drainer holds a separate lock, sends
   the queue in order, suppresses consecutive duplicates, trims the oldest
@@ -225,14 +212,16 @@ Claude Code hooks ──► hook.mjs ──► state file ──► drainer ─�
   apart. `Stop` drains synchronously so `DONE` is not lost; `SessionEnd` tries a
   synchronous flush within its 1.5 s budget and leaves a detached drainer as a
   safety net.
-- **Auth gating.** The first send probes `pushtodisplay auth status --json` and
-  waits for the answer. Once auth is known to be bad, updates are dropped (never
-  buffered) and re-probed lazily at most once every 20 s. A successful login
-  writes the shared auth cache, so sending resumes without a restart.
-- **CLI resolution.** `PUSHTODISPLAY_CLI`, then the bundled
-  `node_modules/pushtodisplay` dependency, then a `pushtodisplay` binary on
-  `PATH`. If none is found, the plugin reports the install command and does not
-  run a package launcher.
+- **Setup and auth gating.** A send requires both this integration's setup
+  marker and a valid login. Installation alone sends nothing, even when the
+  machine already has a working credential from another integration. The first
+  send probes `pushtodisplay auth status --json` and waits for the answer. Once
+  auth is known to be bad, updates are dropped (never buffered) and re-probed
+  lazily at most once every 20 s. A successful login writes the shared auth
+  cache, so sending resumes without a restart.
+- **Bundled CLI.** The plugin ships a pinned `pushtodisplay` CLI and invokes it
+  directly; there is no separate install and no runtime package download. If the
+  bundled copy is unexpectedly missing, an internal PATH lookup is the fallback.
 - **Hooks never block Claude.** Hook failures are swallowed and always exit 0;
   a board that is down must not break the coding session.
 
@@ -276,15 +265,16 @@ review its source:
 
 | Symptom | Check |
 | --- | --- |
-| No lines at all | Run `/pushtodisplay:pushtodisplay-status`; confirm auth, board, and panel. Check `PUSHTODISPLAY_DISABLED` is not `1`. |
-| `CLI not found` | Run `npm ci` in a local checkout, `npm i -g pushtodisplay`, or set `PUSHTODISPLAY_CLI` to an explicit path. The plugin does not download a package at runtime. |
-| Not authenticated | Run `/pushtodisplay:pushtodisplay-login`. If the browser does not open, open the printed URL manually and enter the code. |
+| No lines at all | Run `/pushtodisplay:pushtodisplay-status`; confirm setup is complete, auth is valid, and board/panel are right. Check `PUSHTODISPLAY_DISABLED` is not `1`. A fresh install stays silent until setup completes. |
+| `CLI not found` | Reinstall the plugin; it includes the CLI it needs. |
+| Setup not complete | Run `/pushtodisplay:pushtodisplay-setup`. |
+| Not authenticated | If setup is complete, run `/pushtodisplay:pushtodisplay-login`; otherwise run setup. If the browser does not open, open the printed URL manually and enter the code. |
 | Lines lag behind | The queue is bounded and spaced ≥1.2 s. A burst of tool calls is trimmed to the newest steps; use `PUSHTODISPLAY_STEPS=0` for milestones only. |
 | Too much volume | `PUSHTODISPLAY_STEPS=0` drops tool and subagent entries; tasks, results, permissions, errors, and lifecycle remain. |
 | Permission prompt not shown on board | `PermissionRequest` fires only when Claude Code actually asks for permission. Auto-approved calls and sandbox network prompts may not produce this event. |
 | Hook never fires | Run `claude --debug` and search for `Hooks:` lines. Confirm the plugin is enabled (`/plugin`) and Claude Code is 2.1.x. |
-| Corrupt/stale state | Delete `~/.cache/pushtodisplay/claude-code/` and start a new session. |
-| Plugin does not load | Run `claude plugin validate .` from the plugin directory. |
+| Corrupt/stale state | Delete `~/.cache/pushtodisplay/claude-code/` and run setup again. |
+| Plugin does not load | Reinstall the plugin, or run `claude plugin validate .` from a source checkout. |
 
 Debug logging: `claude --debug` records each hook invocation and its exit status.
 The plugin's own send errors are stored in the session state's `lastError` field
@@ -295,7 +285,7 @@ and are not printed to the transcript.
 ```bash
 npm ci
 npm run check          # typecheck + lint + test
-npm test               # fixture, queue, auth, CLI, and hook integration tests
+npm test               # fixture, queue, auth, setup, command, and hook integration tests
 npm run typecheck
 npm run lint
 npm run validate:plugin
@@ -304,11 +294,14 @@ npm run validate:plugin
 `npm run validate:plugin` requires the Claude Code CLI (`claude`) on `PATH`.
 It runs the local directory-profile validation with warnings treated as errors.
 
-The runtime is dependency-free ESM with JSDoc types, so `node hooks/hook.mjs`
-runs without a build step. Tests use Node's built-in test runner and a fake
-`pushtodisplay` executable on a temporary `PATH`; the integration test copies
-`hooks/` and `lib/` to a temp directory with no `node_modules`, which exercises
-the real PATH fallback and the detached-drainer path.
+The runtime is plain ESM with JSDoc types, so `node hooks/hook.mjs` runs without
+a build step. Tests use Node's built-in test runner and a fake `pushtodisplay`
+executable on a temporary `PATH`; the integration test copies `hooks/` and `lib/`
+to a temp directory with no `node_modules` or vendor directory, which exercises
+the internal PATH fallback and the detached-drainer path.
+
+Local checkout installs, the vendored CLI update procedure, and the internal
+resolution order are documented in [`docs/maintainers.md`](docs/maintainers.md).
 
 Useful manual checks:
 
@@ -336,6 +329,7 @@ echo '{"session_id":"demo","cwd":"'$PWD'","hook_event_name":"SessionStart","sour
 | `lib/sender.mjs` | Queue policy: order, dedupe, bounded backlog, 1.2 s spacing. |
 | `lib/state.mjs` | Per-session state, auth cache, atomic writes, cross-process locks. |
 | `lib/auth-gate.mjs` | Unknown / logged in / logged out; unknown waits, known-bad drops. |
+| `lib/setup-state.mjs` | Per-integration setup marker written only after auth + test send. |
 | `lib/cli-adapter.mjs` | CLI resolution, argv mapping, auth probing, error classification. |
 | `lib/config.mjs` | Env-var config parsing + string/time helpers. |
 | `lib/panel-state.mjs` | The task/result text and assistant-text cleanup. |
@@ -343,6 +337,7 @@ echo '{"session_id":"demo","cwd":"'$PWD'","hook_event_name":"SessionStart","sour
 | `lib/device-code.mjs` | Parse the CLI's device-code URL and code. |
 | `scripts/command.mjs` | `/pushtodisplay:*` command implementations. |
 | `scripts/login-worker.mjs` | Detached device-code login worker. |
+| `vendor/pushtodisplay/` | Pinned `pushtodisplay` CLI 0.1.19; no install step needed. |
 | `.claude-plugin/plugin.json` | Plugin manifest. |
 | `.claude-plugin/marketplace.json` | Single-plugin marketplace catalog. |
 

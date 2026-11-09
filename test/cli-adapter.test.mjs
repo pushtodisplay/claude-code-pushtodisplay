@@ -76,6 +76,32 @@ test("resolveCli prefers PUSHTODISPLAY_CLI", () => {
   assert.deepEqual(cmd.prefix, []);
 });
 
+test("resolveCli prefers the pinned vendored CLI over PATH", () => {
+  const { dir, cleanup } = tempDir("ptd-vendor-");
+  try {
+    const pkgRoot = path.join(dir, "vendor", "pushtodisplay");
+    mkdirSync(path.join(pkgRoot, "dist"), { recursive: true });
+    writeFileSync(path.join(pkgRoot, "dist", "cli.js"), "// cli\n");
+    writeFileSync(
+      path.join(pkgRoot, "package.json"),
+      JSON.stringify({
+        name: "pushtodisplay",
+        version: "0.1.19",
+        bin: { pushtodisplay: "./dist/cli.js" },
+      }),
+    );
+    const pathDir = path.join(dir, "bin");
+    writeExecutable(path.join(pathDir, "pushtodisplay"), "#!/bin/sh\nexit 0\n");
+
+    const cmd = resolveCli({ env: { PATH: pathDir }, root: dir });
+    assert.equal(cmd.source, "bundled");
+    assert.equal(cmd.exe, process.execPath);
+    assert.deepEqual(cmd.prefix, [path.join(pkgRoot, "dist", "cli.js")]);
+  } finally {
+    cleanup();
+  }
+});
+
 test("resolveCli uses a bundled npm dependency when present", () => {
   const { dir, cleanup } = tempDir("ptd-bundled-");
   try {

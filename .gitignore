@@ -147,3 +147,7 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Vendored CLI runtime (the generic dist/ ignore above must not drop it)
+!vendor/pushtodisplay/dist/
+!vendor/pushtodisplay/dist/**

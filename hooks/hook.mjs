@@ -31,6 +31,7 @@ import {
 } from "../lib/cli-adapter.mjs";
 import { handleEvent } from "../lib/events.mjs";
 import { enqueue } from "../lib/sender.mjs";
+import { isSetupComplete } from "../lib/setup-state.mjs";
 import {
   drainLockFile,
   loadState,
@@ -97,6 +98,24 @@ async function drain(statePath, opts) {
   let authChecked = false;
 
   try {
+    // A shared login is not enough: this Claude Code integration must have
+    // completed its own setup (auth check + test send). A drainer left over
+    // from before the marker existed must not flush stale entries.
+    if (!isSetupComplete()) {
+      try {
+        await withStateLock(statePath, async () => {
+          const state = await loadStateFromPath(statePath);
+          state.queue = [];
+          state.lastError = "setup incomplete";
+          state.updatedAt = Date.now();
+          await saveState(state);
+        });
+      } catch {
+        // Best effort; the session state is advisory.
+      }
+      return;
+    }
+
     for (;;) {
       /** @type {import("../lib/panel-state.mjs").QueueEntry|null} */
       let entry = null;
@@ -235,6 +254,10 @@ async function main() {
 
   const config = loadConfig();
   if (config.disabled) return;
+  // A shared login is not enough: this Claude Code integration must have
+  // completed its own setup (auth check + test send). Without the marker, stay
+  // silent and do not create session state.
+  if (!isSetupComplete()) return;
 
   const sessionId =
     typeof event.session_id === "string" && event.session_id

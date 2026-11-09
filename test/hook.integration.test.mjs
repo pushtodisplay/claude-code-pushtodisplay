@@ -15,6 +15,8 @@ import * as path from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { markSetupComplete } from "../lib/setup-state.mjs";
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const pluginRoot = path.resolve(here, "..");
 
@@ -61,7 +63,7 @@ process.exit(0);
 const runtime = makeRuntime();
 after(() => rmSync(runtime.dir, { recursive: true, force: true }));
 
-function makeEnv(extra = {}) {
+function makeEnv(extra = {}, opts = {}) {
   const home = mkdtempSync(path.join(tmpdir(), "ptd-home-"));
   const log = path.join(home, "cli.log");
   const env = {
@@ -73,6 +75,7 @@ function makeEnv(extra = {}) {
     PUSHTODISPLAY_LABEL: "demo",
     ...extra,
   };
+  if (opts.setup !== false) markSetupComplete({}, env);
   return {
     home,
     log,
@@ -94,6 +97,22 @@ function runHook(event, env) {
     child.on("error", reject);
     child.on("exit", (code) => resolve({ code, stdout, stderr }));
     child.stdin.end(JSON.stringify(event));
+  });
+}
+
+function runDrain(statePath, env) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      process.execPath,
+      [path.join(runtime.dir, "hooks", "hook.mjs"), "--drain", statePath],
+      { env, stdio: ["ignore", "pipe", "pipe"] },
+    );
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (d) => (stdout += d.toString()));
+    child.stderr.on("data", (d) => (stderr += d.toString()));
+    child.on("error", reject);
+    child.on("exit", (code) => resolve({ code, stdout, stderr }));
   });
 }
 
@@ -125,6 +144,89 @@ const sessionStart = {
   hook_event_name: "SessionStart",
   source: "startup",
 };
+
+test("valid auth is not enough: a fresh install stays silent until setup completes", async () => {
+  const h = makeEnv({}, { setup: false });
+  try {
+    const result = await runHook(sessionStart, h.env);
+    assert.equal(result.code, 0);
+    assert.equal(result.stdout, "");
+    assert.equal(sends(h.log).length, 0);
+    assert.equal(
+      existsSync(path.join(h.home, ".cache", "pushtodisplay", "claude-code", "s1.json")),
+      false,
+    );
+
+    markSetupComplete({ panel: 1 }, h.env);
+    await runHook(sessionStart, h.env);
+    await waitFor(() => sends(h.log).length === 1);
+    assert.match(lines(h.log)[0], /^demo session opened READY \d{2}:\d{2}$/);
+  } finally {
+    h.cleanup();
+  }
+});
+
+test("a setup marker from another integration on the same host does not enable this one", async () => {
+  const h = makeEnv({}, { setup: false });
+  try {
+    const otherIntegration = {
+      ...h.env,
+      PUSHTODISPLAY_CACHE_DIR: path.join(h.home, ".cache", "pushtodisplay", "codex"),
+    };
+    markSetupComplete({ panel: 1 }, otherIntegration);
+
+    await runHook(sessionStart, h.env);
+    await sleep(400);
+    assert.equal(sends(h.log).length, 0);
+  } finally {
+    h.cleanup();
+  }
+});
+
+test("a drainer without the setup marker drops queued entries", async () => {
+  const h = makeEnv({}, { setup: false });
+  try {
+    const statePath = path.join(
+      h.home,
+      ".cache",
+      "pushtodisplay",
+      "claude-code",
+      "s1.json",
+    );
+    mkdirSync(path.dirname(statePath), { recursive: true });
+    writeFileSync(
+      statePath,
+      JSON.stringify({
+        version: 1,
+        sessionId: "s1",
+        agent: "demo",
+        cwd: "/repo",
+        task: "",
+        lastAssistantText: "",
+        queue: [
+          {
+            payload: { panelId: 1, blocks: [{ text: "stale entry" }] },
+            urgent: false,
+            createdAt: Date.now(),
+          },
+        ],
+        lastKey: "",
+        lastSentAt: 0,
+        updatedAt: Date.now(),
+        lastError: "",
+      }),
+    );
+
+    await runDrain(statePath, h.env);
+    await sleep(200);
+    assert.equal(sends(h.log).length, 0);
+    const after = JSON.parse(readFileSync(statePath, "utf8"));
+    assert.equal(after.queue.length, 0);
+    assert.equal(after.lastError, "setup incomplete");
+  } finally {
+    h.cleanup();
+  }
+});
 
 test("SessionStart writes a READY line and per-session state", async () => {
   const h = makeEnv();

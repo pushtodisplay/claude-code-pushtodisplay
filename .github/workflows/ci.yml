@@ -23,9 +23,8 @@ jobs:
 
       - name: Install dependencies
         # npm ci installs exactly the checked-in lockfile and does not rewrite
-        # it. The fallback covers the CLI's nested shrinkwrap on platforms
-        # where an optional dependency is unavailable.
-        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+        # it. The CLI is vendored, so no runtime dependency is installed.
+        run: npm ci --no-audit --no-fund
 
       - name: Check
         run: npm run check

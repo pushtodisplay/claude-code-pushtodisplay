@@ -1,7 +1,7 @@
 {
   "name": "pushtodisplay",
   "displayName": "Push To Display",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Mirror Claude Code agent activity onto your Push To Display board as a shared, human-readable log.",
   "author": {
     "name": "Goban Source LLC",

@@ -3,6 +3,33 @@
 All notable changes to this project are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.2] - 2026-11-09
+
+### Added
+
+- A per-Claude-Code setup marker (`~/.cache/pushtodisplay/claude-code/setup.json`)
+  written only after auth is valid and a test entry succeeds.
+- `/pushtodisplay:pushtodisplay-setup`, which logs in if needed, sends one test
+  entry, then records setup for this integration.
+- Tests for setup gating: valid auth without a marker sends nothing, setup writes
+  the marker and sends the test, the marker plus valid auth sends, the marker
+  plus invalid auth drops updates, and markers are isolated per integration.
+
+### Changed
+
+- Hooks and drainers now require both the setup marker and valid auth. A fresh
+  install stays silent even when another integration on the same machine is
+  already logged in.
+- Re-authentication (`/pushtodisplay:pushtodisplay-login`) leaves an existing
+  setup marker in place.
+- The pinned `pushtodisplay` 0.1.19 CLI is vendored under `vendor/` instead of
+  installed as an npm dependency, so `npm ci` is reproducible and does not pull
+  in the CLI package's shrinkwrapped dependency tree.
+- README, command docs, and troubleshooting now describe one marketplace install
+  plus one setup action. Global CLI, `npx`, and direct-CLI instructions were
+  removed from user-facing docs; developer details moved to
+  [`docs/maintainers.md`](docs/maintainers.md).
+
 ## [0.1.1] - 2026-11-09
 
 ### Changed

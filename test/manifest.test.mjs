@@ -4,6 +4,8 @@ import * as path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { PUSHTODISPLAY_CLI_VERSION, resolveCli } from "../lib/cli-adapter.mjs";
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (rel) => JSON.parse(readFileSync(path.join(root, rel), "utf8"));
 
@@ -97,12 +99,16 @@ test("the runtime, commands, and docs referenced by the plugin exist", () => {
     "lib/events.mjs",
     "lib/state.mjs",
     "lib/device-code.mjs",
+    "lib/setup-state.mjs",
     "scripts/command.mjs",
     "scripts/login-worker.mjs",
+    "commands/pushtodisplay-setup.md",
     "commands/pushtodisplay-login.md",
     "commands/pushtodisplay-status.md",
     "commands/pushtodisplay-test.md",
     "commands/pushtodisplay-clear.md",
+    "vendor/pushtodisplay/package.json",
+    "vendor/pushtodisplay/dist/cli.js",
     "README.md",
     "LICENSE",
   ]) {
@@ -111,7 +117,7 @@ test("the runtime, commands, and docs referenced by the plugin exist", () => {
 });
 
 test("every command file uses allowed-tools and dynamic context injection", () => {
-  for (const name of ["login", "status", "test", "clear"]) {
+  for (const name of ["setup", "login", "status", "test", "clear"]) {
     const file = path.join(root, "commands", `pushtodisplay-${name}.md`);
     const text = readFileSync(file, "utf8");
     assert.match(text, /^---\n/);
@@ -119,6 +125,25 @@ test("every command file uses allowed-tools and dynamic context injection", () =
     assert.match(text, new RegExp("!`node \\$\\{CLAUDE_PLUGIN_ROOT\\}/scripts/command\\.mjs " + name + "`"));
     assert.match(text, /disable-model-invocation: true/);
   }
+});
+
+test("the vendored CLI is pinned and resolves without PATH", () => {
+  const vendor = read("vendor/pushtodisplay/package.json");
+  assert.equal(vendor.name, "pushtodisplay");
+  assert.equal(vendor.version, PUSHTODISPLAY_CLI_VERSION);
+  assert.equal(vendor.bin.pushtodisplay, "./dist/cli.js");
+  assert.ok(existsSync(path.join(root, "vendor/pushtodisplay/dist/cli.js")));
+
+  const command = resolveCli({ env: { PATH: "" }, root });
+  assert.equal(command.source, "bundled");
+  assert.ok(
+    command.prefix[0].includes(path.join("vendor", "pushtodisplay", "dist", "cli.js")),
+  );
+});
+
+test("the CLI is vendored rather than installed from npm", () => {
+  assert.equal(pkg.dependencies, undefined);
+  assert.equal(pkg.bundleDependencies, undefined);
 });
 
 test("runtime and package scripts use no package launcher", () => {
@@ -137,5 +162,21 @@ test("runtime and package scripts use no package launcher", () => {
       /\b(?:n[p]x|bunx|uvx)\b|\b(?:pnpm|yarn)\s+dlx\b|\b(?:pipx|uv)\s+run\b/,
       rel,
     );
+  }
+});
+
+test("user-facing docs and commands do not require a separate CLI install", () => {
+  const files = [
+    "README.md",
+    "commands/pushtodisplay-setup.md",
+    "commands/pushtodisplay-login.md",
+    "commands/pushtodisplay-status.md",
+    "commands/pushtodisplay-test.md",
+    "commands/pushtodisplay-clear.md",
+  ];
+  for (const rel of files) {
+    const text = readFileSync(path.join(root, rel), "utf8");
+    assert.doesNotMatch(text, /\bnpx\b|\bnpm\s+(?:i|install)\s+-g\b|\bPUSHTODISPLAY_CLI\b/, rel);
+    assert.doesNotMatch(text, /\bpushtodisplay auth login\b/, rel);
   }
 });

@@ -21,7 +21,7 @@ happen in Anthropic's developer portal after the user submits.
 | Listing description | `Mirror Claude Code agent activity onto your Push To Display board as a shared, human-readable log.` |
 | Marketplace | `pushtodisplay` (single plugin, `source: "./"`) |
 | Category / tags | `monitoring`; `status`, `display`, `dashboard`, `notifications`, `hooks` |
-| Release version | `0.1.1` (`plugin.json`, `package.json`, and `package-lock.json`) |
+| Release version | `0.1.2` (`plugin.json`, `package.json`, and `package-lock.json`) |
 | License | MIT (`LICENSE` and `plugin.json`) |
 | Author / contact | Goban Source LLC, `hello@pushtodisplay.com`, `https://pushtodisplay.com` |
 | Repository visibility | **Public** (verified with `gh repo view`) |
@@ -36,8 +36,8 @@ retention.
 Push To Display mirrors Claude Code activity onto a Push To Display board as a
 shared scrolling log. Ten Claude Code hook events create short entries for
 session lifecycle, prompts, finished tool calls, permission prompts, subagent
-activity, results, errors, and session close. Four slash commands log in, show
-status, send a test entry, and write a clear marker.
+activity, results, errors, and session close. Five slash commands run setup, log
+in again, show status, send a test entry, and write a clear marker.
 
 At runtime the hooks read Claude Code hook JSON from stdin, update a per-session
 state file, and invoke the `pushtodisplay` CLI, which sends the entry to the
@@ -122,16 +122,19 @@ Claude Code 2.1.x and Node.js 18+.
   `https://api.pushtodisplay.com` (updates) and
   `https://idp.pushtodisplay.com` (OAuth login). The README discloses the data
   that leaves the machine and where it goes.
-- **No runtime package downloads.** The plugin contains no package launcher. It
-  uses the bundled `pushtodisplay` dependency or a binary already on `PATH`; if
-  neither exists it reports an install error and stops.
-- **Dependency install.** `package.json` and `package-lock.json` tell Claude Code
-  to install the pinned `pushtodisplay` dependency at plugin-install time. This
-  is expected to produce the **Dependencies install from a lockfile** reviewer
-  hold. The lockfile is 41,095 bytes, below the 256 KiB per-file threshold, and
-  is plain JSON.
+- **No runtime package downloads.** The plugin contains no package launcher and
+  no runtime npm dependency. It uses the pinned CLI in `vendor/pushtodisplay`,
+  with an internal `PATH` fallback; if neither exists it reports a missing CLI
+  error and stops.
+- **Vendored CLI.** `vendor/pushtodisplay` carries the exact upstream 0.1.19 CLI
+  entry point and its runtime helpers. The upstream MCP server bundles are
+  omitted because the plugin never invokes `pushtodisplay mcp`, and they exceed
+  the directory's 256 KiB per-file limit. `package.json` and `package-lock.json`
+  remain for development tooling only; no runtime dependency is installed from
+  npm. If the validator still reports **Dependencies install from a lockfile**,
+  it refers only to the dev toolchain, not the CLI.
 - **Script structure.** `hooks/hook.mjs` imports shared modules from `lib/`,
-  and each of the four commands runs `scripts/command.mjs` through a `!`…``
+  and each of the five commands runs `scripts/command.mjs` through a `!`…``
   dynamic-context line. The directory validator follows only plain shell
   scripts, so both the hook entry point and the command injections are expected
   to produce the **Scripts the validator couldn't follow** reviewer hold. The
@@ -139,8 +142,8 @@ Claude Code 2.1.x and Node.js 18+.
   the mapping, queue, state, and adapter logic is shared by the hooks, commands,
   and test suite.
 - **No credential handling.** The plugin does not read or store OAuth tokens,
-  API keys, or environment credentials. `PUSHTODISPLAY_CLI` is an optional
-  executable path, not a secret.
+  API keys, or environment credentials. `PUSHTODISPLAY_CLI` is an internal
+  executable-path override for tests, not a secret.
 - **Permission behavior.** `PermissionRequest` is observational only. The hook
   never emits allow/deny JSON, so Claude Code's normal permission prompt still
   applies.
@@ -168,7 +171,7 @@ decide it.
 | Names valid on Windows and macOS | Pass | No colons, trailing dots/spaces, device names, or case-only collisions. |
 | Folder names on the plugin path use safe characters | Pass | Repository path is `claude-code-pushtodisplay`. |
 | No `export-ignore`/`export-subst` or content-rewriting git attributes | Pass | No `.gitattributes` file exists. |
-| Repository under 50 MiB archived / 256 MiB unpacked; fewer than 10,000 files; each file under 5 MiB | Pass | 65 tracked files, about 240 KiB of tracked content; largest file is `package-lock.json` at 41,095 bytes. |
+| Repository under 50 MiB archived / 256 MiB unpacked; fewer than 10,000 files; each file under 5 MiB | Pass | 78 tracked files, about 585 KiB of tracked content; largest file is `vendor/pushtodisplay/THIRD_PARTY_LICENSES.txt` at 239,594 bytes. |
 
 ### Manifest and plugin name
 
@@ -181,21 +184,21 @@ decide it.
 | Fork-specific name | Not applicable | This is not a fork. |
 | `displayName` and `author.name` in one writing system | Pass | Both are ASCII. |
 | Component keys spelled exactly and outside `experimental` | Pass | No `hooks` key in `plugin.json` (the hooks file loads automatically); no component keys under `experimental`. |
-| `description`, `author`, and `version` set | Pass | All present in `plugin.json`; version is `0.1.1`. |
+| `description`, `author`, and `version` set | Pass | All present in `plugin.json`; version is `0.1.2`. |
 
 ### README and license
 
 | Checklist item | Result | Evidence |
 | --- | --- | --- |
-| README of at least 40 words in the plugin folder | Pass | `README.md` has about 1,490 words outside code blocks. |
+| README of at least 40 words in the plugin folder | Pass | `README.md` has about 2,200 words outside code blocks. |
 | `LICENSE` file or `license` in `plugin.json` | Pass | MIT `LICENSE` file and `"license": "MIT"`. |
 
 ### Files in the plugin folder
 
 | Checklist item | Result | Evidence |
 | --- | --- | --- |
-| Every non-image/non-font file under 256 KiB | Pass | Largest non-image file is `package-lock.json` at 41,095 bytes; next is `README.md` at about 15 KiB. |
-| 512 files or fewer | Pass | 65 tracked files. |
+| Every non-image/non-font file under 256 KiB | Pass | Largest non-image file is `vendor/pushtodisplay/THIRD_PARTY_LICENSES.txt` at 239,594 bytes; next is `vendor/pushtodisplay/dist/cli.js` at 65,662 bytes. |
+| 512 files or fewer | Pass | 78 tracked files. |
 | Only text, SVG, complete PNG/JPEG/GIF/WebP, or font files | Pass | One complete 512x512 PNG icon; every other file is text. |
 | README images use Markdown syntax and are not referenced from commands/hooks/scripts or code blocks | Pass | The README references no bundled image; the icon is not referenced by runtime code. |
 | MCP servers declared with `command`/`args` or `url`, not `.mcpb`/`.dxt` | Not applicable | No MCP servers or bundles. |
@@ -204,7 +207,7 @@ decide it.
 
 | Checklist item | Result | Evidence |
 | --- | --- | --- |
-| Every package launcher is pinned to an exact version | Pass | No package launcher remains. The former unpinned fallback was removed; the plugin uses the bundled dependency or `PATH`. |
+| Every package launcher is pinned to an exact version | Pass | No package launcher is used. The pinned CLI is vendored at `vendor/pushtodisplay`; `PATH` is only an internal fallback. |
 | No package-manager config that sets a registry/index/proxy/source | Pass | No `.npmrc`, `bunfig.toml`, or `uv.toml`. |
 | No real credentials in files; credentials use `userConfig` with `sensitive: true` | Pass | No credentials or `userConfig` entries; OAuth is handled by the CLI and stored in the OS keychain. |
 | Do not read a credential from the environment and send it | Pass | The plugin reads only `PUSHTODISPLAY_*` configuration; no token environment variables. |
@@ -217,8 +220,8 @@ decide it.
 
 | Checklist item | Result | Evidence |
 | --- | --- | --- |
-| Pinned registry package launcher | Not applicable | No launcher is used. |
-| Lockfile install | **Hold** | `package.json` + `package-lock.json`; kept deliberately so Claude Code installs the `pushtodisplay` dependency automatically. Expected finding: **Dependencies install from a lockfile**. |
+| Pinned registry package launcher | Not applicable | No launcher is used; the CLI is vendored. |
+| Lockfile install | **Hold** | `package.json` + `package-lock.json` remain for development tooling only; the CLI is vendored, so no runtime dependency is installed. If flagged, the finding refers to dev dependencies. Expected finding: **Dependencies install from a lockfile**. |
 | Program the validator cannot read through | **Hold** | The hook imports local modules, as above. Expected finding: **Scripts the validator couldn't follow**. |
 
 ### Hooks, commands, skills, and agents
@@ -227,7 +230,7 @@ decide it.
 | --- | --- | --- |
 | `hooks/hooks.json` is valid JSON with a top-level `hooks` object and valid events/types | Pass | `claude plugin validate` passes; ten documented events are wired. |
 | No `hooks/hooks.json` entry in `plugin.json`'s `hooks` field | Pass | The manifest has no `hooks` key. |
-| Valid YAML front matter in each command with a single-text `description` | Pass | Four command files; validator passes. |
+| Valid YAML front matter in each command with a single-text `description` | Pass | Five command files; validator passes. |
 | Component folders and file names use the exact spelling and capitalization Claude Code expects | Pass | `hooks/`, `commands/`, `hooks/hooks.json`; no skills or agents. |
 
 ### Security-scan preparation
@@ -251,38 +254,35 @@ claude --plugin-dir . plugin details pushtodisplay
 
 Expected/observed results:
 
-- `npm run check`: typecheck, lint, and 123 tests pass.
+- `npm run check`: typecheck, lint, and the full test suite pass.
 - `claude plugin validate . --strict`: `Validation passed`.
 - `claude plugin validate . --profile directory --strict`: `Validation passed`.
-- `claude --plugin-dir . plugin details pushtodisplay`: 4 commands and 10 hook
+- `claude --plugin-dir . plugin details pushtodisplay`: 5 commands and 10 hook
   events, no agents, MCP servers, or LSP servers.
 
 The public GitHub marketplace path was exercised with an isolated
-`CLAUDE_CONFIG_DIR` (with the real `HOME` and `PATH`, so the system npm works):
-`claude plugin marketplace add pushtodisplay/claude-code-pushtodisplay`,
-`claude plugin install pushtodisplay@pushtodisplay`, and
-`claude plugin list` showed version `0.1.1`. The cached plugin contained
-`node_modules/pushtodisplay` at version `0.1.18`, so Claude Code's automatic
-dependency install works from the committed lockfile. A local-path marketplace
-install also showed `0.1.1`; local paths load in place, so that check does not
-exercise the dependency copy step.
+`CLAUDE_CONFIG_DIR` for 0.1.1: `claude plugin marketplace add
+pushtodisplay/claude-code-pushtodisplay`, `claude plugin install
+pushtodisplay@pushtodisplay`, and `claude plugin list` showed the release. For
+0.1.2 the CLI is committed at `vendor/pushtodisplay/dist/cli.js`, so a cached
+install should contain that file and no runtime `node_modules/pushtodisplay`
+dependency. A local-path marketplace install loads in place, so it does not
+exercise the copy step.
 
 ## Lockfile tradeoff
 
-The lockfile is **kept**.
+The lockfile is **kept for development tooling**. The plugin no longer depends on
+`pushtodisplay` from npm; the pinned CLI is committed under `vendor/`. Removing
+the lockfile would make `npm ci` non-reproducible for lint, typecheck, and tests.
 
-Claude Code installs a plugin's Node.js dependencies only when the plugin root
-contains both `package.json` and a supported lockfile. Removing
-`package-lock.json` would therefore disable the automatic `pushtodisplay`
-dependency install; marketplace users would need the CLI on `PATH` or would get
-the (clear) "CLI not found" error. Keeping the lockfile is the correct tradeoff
-for a plugin that depends on the CLI.
+Claude Code may still install a plugin's Node.js dependencies when the plugin
+root contains both `package.json` and a supported lockfile. That install is now
+limited to development tooling; the runtime CLI comes from `vendor/`. If the
+directory validator reports **Dependencies install from a lockfile**, the finding
+is about the dev toolchain, not a runtime package.
 
-The lockfile was regenerated with npm 11, which removed 8,155 lines of extraneous
-nested entries. It is now 41,095 bytes, so it no longer triggers the 256 KiB
-per-file reviewer hold. It still triggers the intentional **Dependencies install
-from a lockfile** hold. Use `npm ci` (not `npm install`) in a checkout to keep
-the lockfile from re-adding those optional nested entries.
+The lockfile is 40,580 bytes, below the 256 KiB per-file reviewer threshold, and
+plain JSON. Use `npm ci` (not `npm install`) in a checkout.
 
 ## Exact portal submission steps
 
