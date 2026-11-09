@@ -9,11 +9,13 @@ const read = (rel) => JSON.parse(readFileSync(path.join(root, rel), "utf8"));
 
 const plugin = read(".claude-plugin/plugin.json");
 const marketplace = read(".claude-plugin/marketplace.json");
+const pkg = read("package.json");
 const hooks = read("hooks/hooks.json");
 
 test("plugin manifest has the required identity and metadata", () => {
   assert.equal(plugin.name, "pushtodisplay");
-  assert.equal(plugin.version, "0.1.0");
+  assert.equal(plugin.version, pkg.version);
+  assert.match(plugin.version, /^\d+\.\d+\.\d+$/);
   assert.ok(plugin.description.length > 20);
   assert.equal(plugin.author.name, "Goban Source LLC");
   assert.equal(plugin.homepage, "https://pushtodisplay.com");
@@ -116,5 +118,24 @@ test("every command file uses allowed-tools and dynamic context injection", () =
     assert.match(text, /allowed-tools: Bash\(node \$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/command\.mjs \*\)/);
     assert.match(text, new RegExp("!`node \\$\\{CLAUDE_PLUGIN_ROOT\\}/scripts/command\\.mjs " + name + "`"));
     assert.match(text, /disable-model-invocation: true/);
+  }
+});
+
+test("runtime and package scripts use no package launcher", () => {
+  const files = [
+    "package.json",
+    "hooks/hooks.json",
+    "hooks/hook.mjs",
+    "scripts/command.mjs",
+    "scripts/login-worker.mjs",
+    "lib/cli-adapter.mjs",
+  ];
+  for (const rel of files) {
+    const text = readFileSync(path.join(root, rel), "utf8");
+    assert.doesNotMatch(
+      text,
+      /\b(?:n[p]x|bunx|uvx)\b|\b(?:pnpm|yarn)\s+dlx\b|\b(?:pipx|uv)\s+run\b/,
+      rel,
+    );
   }
 });

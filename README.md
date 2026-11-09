@@ -92,7 +92,7 @@ Restart Claude Code (or run `/reload-plugins`) after installing.
 ```bash
 git clone https://github.com/pushtodisplay/claude-code-pushtodisplay.git
 cd claude-code-pushtodisplay
-npm install
+npm ci
 claude --plugin-dir .
 ```
 
@@ -107,9 +107,10 @@ to try a change without touching your installed plugins.
   hooks).
 - **Node.js 18+** — hooks run `node ${CLAUDE_PLUGIN_ROOT}/hooks/hook.mjs`.
 - **The `pushtodisplay` CLI.** Marketplace installs install the npm dependency
-  automatically. For a local checkout, `npm install` puts it in the plugin's
-  `node_modules`. If neither is present, the plugin falls back to a
-  `pushtodisplay` binary on `PATH`, then to `npx --yes pushtodisplay`.
+  automatically from `package-lock.json`. For a local checkout, `npm ci`
+  puts it in the plugin's `node_modules`. A `pushtodisplay` binary already on
+  `PATH` also works. If none is present, the plugin reports a clear install
+  error instead of downloading a package at runtime.
 
 ## Quick start
 
@@ -153,7 +154,7 @@ a different panel without any per-session config files:
 | `PUSHTODISPLAY_LABEL` | *(cwd basename)* | Agent name in the first field of every line. |
 | `PUSHTODISPLAY_STEPS` | *(on)* | Set to `0` to skip per-tool and per-subagent entries (milestones only). |
 | `PUSHTODISPLAY_DISABLED` | *(off)* | Set to `1` to disable the plugin entirely. |
-| `PUSHTODISPLAY_CLI` | *(auto)* | Optional path to a `pushtodisplay` executable; overrides bundled/PATH/npx resolution. |
+| `PUSHTODISPLAY_CLI` | *(auto)* | Optional path to a `pushtodisplay` executable; overrides bundled/PATH resolution. |
 
 Set them in the environment that launches Claude Code:
 
@@ -230,7 +231,8 @@ Claude Code hooks ──► hook.mjs ──► state file ──► drainer ─�
   writes the shared auth cache, so sending resumes without a restart.
 - **CLI resolution.** `PUSHTODISPLAY_CLI`, then the bundled
   `node_modules/pushtodisplay` dependency, then a `pushtodisplay` binary on
-  `PATH`, then `npx --yes pushtodisplay`.
+  `PATH`. If none is found, the plugin reports the install command and does not
+  run a package launcher.
 - **Hooks never block Claude.** Hook failures are swallowed and always exit 0;
   a board that is down must not break the coding session.
 
@@ -255,6 +257,18 @@ review its source:
   Credential Manager), with a plaintext fallback at
   `~/.config/pushtodisplay/credentials.json` only when no keychain is
   available. The plugin never reads or stores the token itself.
+- **Network.** The only destination is your Push To Display board. The CLI
+  sends updates to `https://api.pushtodisplay.com`; the OAuth device-code login
+  uses `https://idp.pushtodisplay.com`. The plugin has no analytics, telemetry,
+  or other network calls, and it does not download or install packages at
+  runtime.
+- **Retention.** Board history is stored by Push To Display under your account;
+  `/pushtodisplay:pushtodisplay-clear` writes a marker and does not delete
+  history. Local session state stays under
+  `~/.cache/pushtodisplay/claude-code/` until you delete it. Push To Display
+  stores message payloads temporarily for delivery and may retain them in logs
+  for up to 90 days; see the
+  [privacy policy](https://pushtodisplay.com/privacy).
 - **Disable.** Set `PUSHTODISPLAY_DISABLED=1` to make every hook a no-op, or
   disable/uninstall the plugin in `/plugin`.
 
@@ -263,7 +277,7 @@ review its source:
 | Symptom | Check |
 | --- | --- |
 | No lines at all | Run `/pushtodisplay:pushtodisplay-status`; confirm auth, board, and panel. Check `PUSHTODISPLAY_DISABLED` is not `1`. |
-| `CLI not found` | Run `npm install` in a local checkout, `npm i -g pushtodisplay`, or let the plugin use `npx`. Set `PUSHTODISPLAY_CLI` to an explicit path if needed. |
+| `CLI not found` | Run `npm ci` in a local checkout, `npm i -g pushtodisplay`, or set `PUSHTODISPLAY_CLI` to an explicit path. The plugin does not download a package at runtime. |
 | Not authenticated | Run `/pushtodisplay:pushtodisplay-login`. If the browser does not open, open the printed URL manually and enter the code. |
 | Lines lag behind | The queue is bounded and spaced ≥1.2 s. A burst of tool calls is trimmed to the newest steps; use `PUSHTODISPLAY_STEPS=0` for milestones only. |
 | Too much volume | `PUSHTODISPLAY_STEPS=0` drops tool and subagent entries; tasks, results, permissions, errors, and lifecycle remain. |
@@ -279,13 +293,16 @@ and are not printed to the transcript.
 ## Development
 
 ```bash
-npm install
+npm ci
 npm run check          # typecheck + lint + test
 npm test               # fixture, queue, auth, CLI, and hook integration tests
 npm run typecheck
 npm run lint
 npm run validate:plugin
 ```
+
+`npm run validate:plugin` requires the Claude Code CLI (`claude`) on `PATH`.
+It runs the local directory-profile validation with warnings treated as errors.
 
 The runtime is dependency-free ESM with JSDoc types, so `node hooks/hook.mjs`
 runs without a build step. Tests use Node's built-in test runner and a fake

@@ -1,6 +1,6 @@
 {
   "name": "claude-code-pushtodisplay",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Mirror Claude Code agent activity onto your Push To Display board as a shared, human-readable log",
   "type": "module",
   "keywords": [
@@ -37,7 +37,7 @@
     "lint": "eslint .",
     "test": "node --test",
     "check": "npm run typecheck && npm run lint && npm test",
-    "validate:plugin": "npx --yes @anthropic-ai/claude-code plugin validate ."
+    "validate:plugin": "claude plugin validate . --profile directory --strict"
   },
   "dependencies": {
     "pushtodisplay": "^0.1.15"

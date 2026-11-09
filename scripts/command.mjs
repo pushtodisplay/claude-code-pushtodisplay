@@ -46,7 +46,7 @@ function describeCli(cmd) {
   if (cmd.source === "bundled") return "bundled dependency";
   if (cmd.source === "path") return `PATH (${cmd.exe})`;
   if (cmd.source === "env") return `PUSHTODISPLAY_CLI (${cmd.exe})`;
-  return "npx --yes pushtodisplay";
+  return "not found";
 }
 
 function boardLabel(boardId) {

@@ -10,7 +10,7 @@
 import { createWriteStream } from "node:fs";
 import { spawn } from "node:child_process";
 
-import { resolveCli } from "../lib/cli-adapter.mjs";
+import { cliNotFoundMessage, resolveCli } from "../lib/cli-adapter.mjs";
 import { writeAuth } from "../lib/state.mjs";
 
 const logPath = process.argv[2];
@@ -19,6 +19,11 @@ if (!logPath) process.exit(1);
 const out = createWriteStream(logPath, { flags: "a", mode: 0o600 });
 out.on("error", () => {});
 const cmd = resolveCli();
+if (cmd.source === "missing") {
+  out.write(`\n[pushtodisplay] login failed to start: ${cliNotFoundMessage()}\n`);
+  out.end();
+  process.exit(0);
+}
 const child = spawn(cmd.exe, [...cmd.prefix, "auth", "login", "--device-code"], {
   stdio: ["ignore", "pipe", "pipe"],
   env: process.env,

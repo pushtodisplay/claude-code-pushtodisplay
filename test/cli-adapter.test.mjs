@@ -17,6 +17,7 @@ import {
   isCliMissing,
   probeAuth,
   resolveCli,
+  runCli,
   sendArgs,
 } from "../lib/cli-adapter.mjs";
 
@@ -95,7 +96,7 @@ test("resolveCli uses a bundled npm dependency when present", () => {
   }
 });
 
-test("resolveCli falls back to PATH and then npx", () => {
+test("resolveCli falls back to PATH and reports a missing CLI without a launcher", () => {
   const { dir, cleanup } = tempDir("ptd-path-");
   try {
     const exe = path.join(dir, "pushtodisplay");
@@ -105,12 +106,23 @@ test("resolveCli falls back to PATH and then npx", () => {
     assert.equal(cmd.source, "path");
     assert.equal(cmd.exe, exe);
 
-    const npx = resolveCli({ env: { PATH: "/definitely/not/here" }, root: "/nowhere" });
-    assert.equal(npx.source, "npx");
-    assert.deepEqual(npx.prefix, ["--yes", "pushtodisplay"]);
+    const missing = resolveCli({ env: { PATH: "/definitely/not/here" }, root: "/nowhere" });
+    assert.equal(missing.source, "missing");
+    assert.equal(missing.exe, "");
+    assert.deepEqual(missing.prefix, []);
   } finally {
     cleanup();
   }
+});
+
+test("runCli reports a missing CLI as ENOENT and never spawns a package launcher", async () => {
+  const result = await runCli(["auth", "status", "--json"], {
+    env: { PATH: "/definitely/not/here" },
+    root: "/nowhere",
+  });
+  assert.equal(result.code, 1);
+  assert.equal(/** @type {NodeJS.ErrnoException} */ (result.error)?.code, "ENOENT");
+  assert.match(result.stderr, /CLI not found/);
 });
 
 /** Create a fake CLI that answers auth status from FAKE_AUTH and exits. */
